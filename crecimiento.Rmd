@@ -10,7 +10,7 @@ library(dplyr)
 library(ggplot2)
 library(readr)
 # Cargamos los datos
-palmeras_definitivo <- read_delim("C:/Users/carlo/Documents/GitHub/aprende_R/propio/palmeras definitivo.csv",
+palmeras_definitivo <- read_delim("dirección",
                        delim = ";", 
                        locale = locale(encoding = "ISO-8859-1"))
 
