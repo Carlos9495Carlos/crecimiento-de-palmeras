@@ -1,0 +1,129 @@
+---
+title: "Untitled"
+author: "Carlos"
+date: "2025-05-26"
+output: html_document
+---
+```{r}
+# Primero, cargamos los paquetes que podamos necesitar
+library(dplyr)
+library(ggplot2)
+library(readr)
+# Cargamos los datos
+palmeras_definitivo <- read_delim("C:/Users/carlo/Documents/GitHub/aprende_R/propio/palmeras definitivo.csv",
+                       delim = ";", 
+                       locale = locale(encoding = "ISO-8859-1"))
+
+# 1. Obtenemos todas las especies únicas
+especies <- palmeras_definitivo %>%
+  distinct(especie) %>%
+  pull(especie)
+
+crear_graficos <- function(especie_actual) {
+  # 2. Filtración de datos y cálculo de las variables estadísticas
+  datos <- palmeras %>%
+    filter(especie == especie_actual) %>%
+    summarise(
+      altura_media_total = mean(`altura total`, na.rm = TRUE),
+      desviacion_estandar = sd(`altura total`, na.rm = TRUE),
+      altura_media_urbana = mean(`Altura media ambiente urbano (m)`, na.rm = TRUE),
+      especie_seleccionada = first(especie)
+    )
+
+  # Verificar si hay datos para la especie
+  if (nrow(datos) == 0) {
+    message(paste("No hay datos para la especie:", especie_actual))
+    return(NULL)
+  }
+
+  if (is.na(datos$altura_media_urbana)) {
+    message(paste("La altura media ambiente urbano no está disponible para la especie:", especie_actual))
+    return(NULL)
+  }
+
+  # Extraer valores individuales
+  altura_media_total <- datos$altura_media_total
+  altura_media_urbana <- datos$altura_media_urbana
+  desviacion_estandar <- datos$desviacion_estandar
+  especie_seleccionada <- datos$especie_seleccionada
+
+  # Calcular el estado de la altura media urbana
+  color_urbana <- ifelse(
+    altura_media_urbana >= (altura_media_total - desviacion_estandar) &
+      altura_media_urbana <= (altura_media_total + desviacion_estandar),
+    "Aceptable",
+    "No aceptable"
+  )
+
+  # Crear una nueva columna para asignar colores
+  datos_filtrados <- palmeras %>%
+    filter(especie == especie_seleccionada) %>%
+    mutate(
+      color = ifelse(
+        `altura total` <= altura_media_urbana,
+        "Debajo de lo normal",
+        "Encima de lo normal"
+      ),
+      individuo = row_number() # Crear índice único para cada fila
+    )
+
+  # Verificar si hay datos suficientes para hacer la gráfica
+  if (nrow(datos_filtrados) == 0) {
+    message(paste("No hay datos filtrados para la especie:", especie_actual))
+    return(NULL)
+  }
+
+  # Crear gráfico de barras
+  grafico_barras <- ggplot(data = datos_filtrados, aes(x = as.factor(individuo), y = `altura total`, fill = color)) +
+    geom_bar(stat = "identity", color = "black") +
+    scale_fill_manual(values = c("Debajo de lo normal" = "red", "Encima de lo normal" = "blue")) +
+    theme_minimal() + # Ajuste estético
+    labs(
+      title = paste("Alturas de los individuos de", especie_seleccionada),
+      subtitle = paste(
+        "Altura media total:", round(altura_media_total, 2), "m | Desviación estándar:", round(desviacion_estandar, 2)
+      ),
+      x = "Individuo",
+      y = "Altura Total (m)",
+      fill = "Estado respecto a la altura media ambiente urbano"
+    ) +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+  # Crear histograma junto con una distribución normal
+  histograma <- ggplot(data = datos_filtrados, aes(x = `altura total`, fill = color)) +
+    geom_histogram(aes(y = ..density..), binwidth = 5, color = "black", alpha = 0.7) +
+    stat_function(
+      fun = dnorm,
+      args = list(mean = altura_media_total, sd = desviacion_estandar),
+      color = "blue",
+      linetype = "solid",
+      size = 1
+    ) +
+    theme_minimal() +
+    scale_fill_manual(values = c("Debajo de lo normal" = "orange", "Encima de lo normal" = "skyblue")) +
+    labs(
+      title = paste("Distribución Normal y Altura Total en", especie_seleccionada),
+      subtitle = paste(
+        "Altura media total:", round(altura_media_total, 2), "m | Desviación estándar:", round(desviacion_estandar, 2), "m | Altura media ambiente urbano:", round(altura_media_urbana), "m"
+      ),
+      x = "Altura Total (m)",
+      y = "Densidad",
+      fill = "Leyenda"
+    ) +
+    geom_vline(aes(xintercept = altura_media_total), color = "darkgreen", linetype = "solid", size = 1) +
+    geom_vline(aes(xintercept = altura_media_total + desviacion_estandar), color = "blue", linetype = "dotted", size = 1) +
+    geom_vline(aes(xintercept = altura_media_total - desviacion_estandar), color = "blue", linetype = "dotted", size = 1) +
+    geom_vline(aes(xintercept = altura_media_urbana), color = ifelse(color_urbana == "Aceptable", "green", "red"), linetype = "solid", size = 1) +
+    annotate("text", x = altura_media_urbana, y = 0.01, label = color_urbana, color = ifelse(color_urbana == "Aceptable", "green", "red"))
+
+  # Mostrar gráficos
+  print(grafico_barras)
+  print(histograma)
+}
+
+# Generar gráficos para todas las especies
+lapply(especies, crear_graficos)
+```
+
+
+ 
